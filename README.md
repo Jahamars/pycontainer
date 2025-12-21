@@ -1,21 +1,21 @@
-# pycontainer https://www.figma.com/slides/j3uauzeLz7CPe19rUpNYGr/namespaces-and-cgroups?node-id=23-51&t=2lbcrJPb4xypUXJ5-1
+## Simple container using Linux namespaces and cgroups v2 in python.
 
-**Использование:**
-```bash
-sudo python3 container.py [команда]
-```
+### Usage
+sudo python3 container.py [command]
 
-**Команды:**
-- ``shell`` — Интерактивный shell (BusyBox)  
-- ``run``   — Выполнить команду  
-- ``memory`` — Тест ограничения памяти  
-- ``help``  — Показать справку  
+text
 
-**Требования:**
-- BusyBox: `apt install busybox-static`  
-- Root-права для работы с namespaces и cgroups  
+### Commands
+- `shell` - Interactive BusyBox shell
+- `run` - Execute command
+- `memory` - Memory limit test
+- `help` - Show help
 
-**Технологии:**
-- ✓ **Namespaces**: PID, NET, MNT, UTS, IPC  
-- ✓ **CGroups v2**: Memory, CPU  
-- ✓ **BusyBox**: Минимальное окружение  
+### Requirements
+- BusyBox: `apt install busybox-static`
+- Root privileges
+
+### Features
+- Namespaces: PID, NET, MNT, UTS, IPC
+- CGroups v2: Memory, CPU
+- BusyBox environment

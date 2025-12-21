@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Минималистичная контейнеризация на Python
-Использует: Namespaces + Cgroups + BusyBox
-"""
-
 import os
 import sys
 import subprocess
@@ -15,7 +10,6 @@ from dataclasses import dataclass
 
 @dataclass
 class ContainerConfig:
-    """Конфигурация контейнера"""
     name: str
     memory_mb: int = 50
     cpu_percent: int = 25
@@ -23,14 +17,12 @@ class ContainerConfig:
 
 
 class CGroupManager:
-    """Управление cgroups v2"""
     
     def __init__(self, name: str):
         self.name = name
         self.path = Path(f"/sys/fs/cgroup/{name}")
     
     def create(self, memory_mb: int, cpu_percent: int):
-        """Создать cgroup с лимитами ресурсов"""
         self.path.mkdir(exist_ok=True)
         
         (self.path / "memory.max").write_text(str(memory_mb * 1024 * 1024))
@@ -39,11 +31,9 @@ class CGroupManager:
         print(f"✓ CGroup: {memory_mb}MB RAM, {cpu_percent}% CPU")
     
     def add_process(self, pid: int):
-        """Добавить процесс в cgroup"""
         (self.path / "cgroup.procs").write_text(str(pid))
     
     def cleanup(self):
-        """Удалить cgroup"""
         try:
             self.path.rmdir()
         except OSError:
@@ -51,32 +41,26 @@ class CGroupManager:
 
 
 class RootFSManager:
-    """Управление корневой файловой системой"""
     
     def __init__(self, name: str):
         self.name = name
         self.rootfs = None
     
     def create(self) -> Path:
-        """Создать минимальную rootfs с busybox"""
         self.rootfs = Path(tempfile.mkdtemp(prefix=f"container_{self.name}_"))
         
-        # Базовые директории
         for d in ['bin', 'lib', 'lib64', 'proc', 'tmp', 'dev', 'etc']:
             (self.rootfs / d).mkdir(parents=True, exist_ok=True)
         
-        # Установка busybox
         if not self._setup_busybox():
             raise RuntimeError("BusyBox недоступен. Установите: apt install busybox-static")
         
-        # Копирование bash (опционально)
         self._copy_bash()
         
         print(f"✓ RootFS: {self.rootfs}")
         return self.rootfs
     
     def _setup_busybox(self) -> bool:
-        """Установить busybox и создать симлинки"""
         busybox_paths = ['/usr/bin/busybox', '/bin/busybox', '/usr/bin/busybox-static']
         busybox_src = None
         
@@ -88,12 +72,10 @@ class RootFSManager:
         if not busybox_src:
             return False
         
-        # Копируем busybox
         busybox_dst = self.rootfs / 'bin/busybox'
         shutil.copy2(busybox_src, busybox_dst)
         busybox_dst.chmod(0o755)
         
-        # Создаём симлинки для основных команд
         commands = ['sh', 'ls', 'cat', 'echo', 'ps', 'sleep', 'mkdir', 'rm', 'cp', 'mv']
         for cmd in commands:
             link = self.rootfs / 'bin' / cmd
@@ -108,12 +90,10 @@ class RootFSManager:
         if not os.path.exists(bash_path):
             return
         
-        # Копируем bash
         bash_dst = self.rootfs / 'bin/bash'
         shutil.copy2(bash_path, bash_dst)
         bash_dst.chmod(0o755)
         
-        # Копируем библиотеки
         try:
             result = subprocess.run(
                 ['ldd', bash_path],
@@ -144,13 +124,11 @@ class RootFSManager:
             pass
     
     def cleanup(self):
-        """Удалить rootfs"""
         if self.rootfs and self.rootfs.exists():
             shutil.rmtree(self.rootfs)
 
 
 class Container:
-    """Контейнер с изоляцией через namespaces и ограничениями через cgroups"""
     
     def __init__(self, config: ContainerConfig):
         self.config = config
@@ -158,22 +136,18 @@ class Container:
         self.rootfs_mgr = RootFSManager(config.name)
     
     def run(self) -> int:
-        """Запустить контейнер"""
         print(f"\n{'='*60}")
         print(f"Контейнер: {self.config.name}")
         print('='*60)
         
         try:
-            # Подготовка
             self.cgroup.create(self.config.memory_mb, self.config.cpu_percent)
             rootfs = self.rootfs_mgr.create()
             
             print(f"🚀 Команда: {self.config.command}\n")
             
-            # Добавляем текущий процесс в cgroup
             self.cgroup.add_process(os.getpid())
             
-            # Запуск с полной изоляцией
             cmd = [
                 'unshare',
                 '--fork',
@@ -222,7 +196,6 @@ def demo_interactive():
 
 
 def demo_command():
-    """Выполнение команды"""
     config = ContainerConfig(
         name="cmd_demo",
         memory_mb=30,
@@ -233,7 +206,6 @@ def demo_command():
 
 
 def demo_memory_limit():
-    """Тест лимита памяти"""
     print("\n" + "="*60)
     print("ТЕСТ: Ограничение памяти (OOM Killer)")
     print("="*60)
@@ -246,9 +218,8 @@ for i in range(100):
     print(f"Allocated {i+1}MB")
 '''
     
-    # Проверяем наличие python в rootfs
     if not shutil.which('python3'):
-        print("⚠ Python3 не найден, используем busybox для теста")
+        print("Python3 не найден, используем busybox для теста")
         config = ContainerConfig(
             name="mem_test",
             memory_mb=20,
@@ -266,11 +237,10 @@ for i in range(100):
     exit_code = Container(config).run()
     
     if exit_code == 137:
-        print("✓ OOM Killer сработал - лимит работает!")
+        print("OOM Killer сработал - лимит работает!")
 
 
 def print_help():
-    """Справка"""
     print("""
 Использование:
     sudo python3 container.py [команда]
@@ -287,19 +257,19 @@ def print_help():
     sudo python3 container.py memory
 
 Требования:
-    • BusyBox: apt install busybox-static
-    • Root права для namespaces и cgroups
+    BusyBox: apt install busybox-static
+    Root права для namespaces и cgroups
 
 Технологии:
-    ✓ Namespaces: PID, NET, MNT, UTS, IPC
-    ✓ CGroups v2: Memory, CPU
-    ✓ BusyBox: Минимальное окружение
+    Namespaces: PID, NET, MNT, UTS, IPC
+    CGroups v2: Memory, CPU
+    BusyBox: Минимальное окружение
     """)
 
 
 def main():
     if os.geteuid() != 0:
-        print("✗ Требуются root права")
+        print("Требуются root права")
         print("Запустите: sudo python3 container.py")
         sys.exit(1)
     
@@ -315,7 +285,7 @@ def main():
     if cmd in commands:
         commands[cmd]()
     else:
-        print(f"✗ Неизвестная команда: {cmd}\n")
+        print(f"Неизвестная команда: {cmd}\n")
         print_help()
         sys.exit(1)
 
